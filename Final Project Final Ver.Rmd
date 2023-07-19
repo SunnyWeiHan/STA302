@@ -1,0 +1,344 @@
+---
+title: "Data cleaning"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(car)
+```
+
+```{r}
+library(readxl)
+SWOP_Data_2021 <- read_excel("SWOP-Data-2021.xlsx", 
+    sheet = "ICPD_Health_2021", skip = 1)
+
+#We are pulling out the columns we need to produce another dataset
+maternal_mortality_data <- select(SWOP_Data_2021, 'Countries, territories, other areas', 'Maternal mortality ratio (MMR) (deaths per 100,000 live births)a', 'Births attended by skilled health personnel, percent', 'Number of new HIV infections, all ages, per 1,000\r\nuninfected population', 'Contraceptive prevalence rate, women aged 15-49, any method', '...9', 'Contraceptive prevalence rate, women aged 15-49, modern method', '...11','Unmet need for family planning, women aged 15-49', '...13', 'Laws and regulations that guarantee access to sexual and reproductive health care, information and education, percent')
+
+#Delete rows with NA values inside
+maternal_mortality_data <- maternal_mortality_data %>% mutate_all(funs(as.character(.)))
+
+#There were numbers that weren't entered in correct format that we need to fix
+maternal_mortality_data$'Number of new HIV infections, all ages, per 1,000\r\nuninfected population'[maternal_mortality_data$'Number of new HIV infections, all ages, per 1,000\r\nuninfected population' == "7.0000000000000007E-2"] <- "0.07" 
+
+#There are still empty values which are denoted as '-' that we need to remove from the data
+maternal_mortality_data$'Number of new HIV infections, all ages, per 1,000\r\nuninfected population'[maternal_mortality_data$'Number of new HIV infections, all ages, per 1,000\r\nuninfected population' == "-"] <- NA 
+maternal_mortality_data$'Countries, territories, other areas'[maternal_mortality_data$'Countries, territories, other areas' == "-"] <- NA 
+maternal_mortality_data$'Maternal mortality ratio (MMR) (deaths per 100,000 live births)a'[maternal_mortality_data$'Maternal mortality ratio (MMR) (deaths per 100,000 live births)a' == "-"] <- NA 
+maternal_mortality_data$'Births attended by skilled health personnel, percent'[maternal_mortality_data$'Births attended by skilled health personnel, percent' == "-"] <- NA 
+maternal_mortality_data$'Contraceptive prevalence rate, women aged 15-49, any method'[maternal_mortality_data$'Contraceptive prevalence rate, women aged 15-49, any method' == "-"] <- NA 
+maternal_mortality_data$'...9'[maternal_mortality_data$'...9' == "-"] <- NA 
+maternal_mortality_data$'Contraceptive prevalence rate, women aged 15-49, modern method'[maternal_mortality_data$'Contraceptive prevalence rate, women aged 15-49, modern method' == "-"] <- NA 
+maternal_mortality_data$'...11'[maternal_mortality_data$'...11' == "-"] <- NA 
+maternal_mortality_data$'Unmet need for family planning, women aged 15-49'[maternal_mortality_data$'Unmet need for family planning, women aged 15-49' == "-"] <- NA 
+maternal_mortality_data$'...13'[maternal_mortality_data$'...13' == "-"] <- NA 
+maternal_mortality_data$'Laws and regulations that guarantee access to sexual and reproductive health care, information and education, percent'[maternal_mortality_data$'Laws and regulations that guarantee access to sexual and reproductive health care, information and education, percent' == "-"] <- NA 
+
+
+
+#Dropped all values that are NA
+maternal_mortality_data <- drop_na(maternal_mortality_data, 'Countries, territories, other areas', 'Maternal mortality ratio (MMR) (deaths per 100,000 live births)a','Births attended by skilled health personnel, percent', 'Number of new HIV infections, all ages, per 1,000\r\nuninfected population', 'Contraceptive prevalence rate, women aged 15-49, any method', '...9', 'Contraceptive prevalence rate, women aged 15-49, modern method', '...11','Unmet need for family planning, women aged 15-49', '...13', 'Laws and regulations that guarantee access to sexual and reproductive health care, information and education, percent')
+
+#Rename columns since the original names are too lengthy
+maternal_mortality_data <- rename(maternal_mortality_data, 'Locations'= 'Countries, territories, other areas', 
+                                  'Maternal Mortality Rate' = 'Maternal mortality ratio (MMR) (deaths per 100,000 live births)a', 
+                                  'New HIV Infections' = 'Number of new HIV infections, all ages, per 1,000\r\nuninfected population', 
+                                  'Birth Attended by Professionals' = 'Births attended by skilled health personnel, percent', 
+                                  'All Women aged 15-49 Any Method Contraceptive Prevalence Rate'= 'Contraceptive prevalence rate, women aged 15-49, any method', 
+                                  'Married Women Any Method Contraceptive Prevalent Rate' = '...9', 
+                                  'All Women aged 15-49 Modern Method Contraceptive Prevalence Rate' = 'Contraceptive prevalence rate, women aged 15-49, modern method', 
+                                  'Married women Modern Method Contraceptive Prevalence Rate' = '...11',
+                                  'All Women aged 15-49 Unmet need for family planning Rate' = 'Unmet need for family planning, women aged 15-49', 
+                                  'Married Women aged 15-49 Unmet need for family planning Rate' ='...13', 
+                                  'Sexual and Reproductive Information Rate' = 'Laws and regulations that guarantee access to sexual and reproductive health care, information and education, percent')
+View(maternal_mortality_data)
+```
+
+```{r}
+#converting types of columns because we can't use them to calculate without changing the column type to numeric
+maternal_mortality_data$`Maternal Mortality Rate` <- as.numeric(as.character(maternal_mortality_data$`Maternal Mortality Rate`))
+maternal_mortality_data$`Birth Attended by Professionals` <- as.numeric(as.character(maternal_mortality_data$`Birth Attended by Professionals`))
+maternal_mortality_data$`New HIV Infections` <- as.numeric(as.character(maternal_mortality_data$`New HIV Infections`))
+maternal_mortality_data$`All Women aged 15-49 Any Method Contraceptive Prevalence Rate` <- as.numeric(as.character(maternal_mortality_data$`All Women aged 15-49 Any Method Contraceptive Prevalence Rate`))
+maternal_mortality_data$`Married Women Any Method Contraceptive Prevalent Rate` <- as.numeric(as.character(maternal_mortality_data$`Married Women Any Method Contraceptive Prevalent Rate`))
+maternal_mortality_data$`All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` <- as.numeric(as.character(maternal_mortality_data$`All Women aged 15-49 Modern Method Contraceptive Prevalence Rate`))
+maternal_mortality_data$`Married women Modern Method Contraceptive Prevalence Rate` <- as.numeric(as.character(maternal_mortality_data$`Married women Modern Method Contraceptive Prevalence Rate`))
+maternal_mortality_data$`All Women aged 15-49 Unmet need for family planning Rate` <- as.numeric(as.character(maternal_mortality_data$`All Women aged 15-49 Unmet need for family planning Rate`))
+maternal_mortality_data$`Married Women aged 15-49 Unmet need for family planning Rate` <- as.numeric(as.character(maternal_mortality_data$`Married Women aged 15-49 Unmet need for family planning Rate`))
+maternal_mortality_data$`Sexual and Reproductive Information Rate` <- as.numeric(as.character(maternal_mortality_data$`Sexual and Reproductive Information Rate`))
+#graphing predictors and observing their frequency
+par(mfrow=c(3,5))
+hist(maternal_mortality_data$`Sexual and Reproductive Information Rate`, main="Sexual and Reproductive Information Rate", xlab="Sexual and Reproductive Information Rate")
+hist(maternal_mortality_data$`Maternal Mortality Rate`, main="Maternal Mortality Rate/100,000 births", xlab="Maternal Mortality Rate")
+hist(maternal_mortality_data$`Birth Attended by Professionals`, main="Birth Attended by Professionals (Rate(%)", xlab="Birth Attended by Professionals (%)")
+hist(maternal_mortality_data$`New HIV Infections`, main="New HIV Infections/1000 people", xlab="New HIV Infections")
+hist(maternal_mortality_data$`All Women aged 15-49 Any Method Contraceptive Prevalence Rate`, main="All Women aged 15-49 Any Method Contraceptive Prevalence Rate", xlab="Any Method Contraceptive Prevalence Rate")
+hist(maternal_mortality_data$`Married Women Any Method Contraceptive Prevalent Rate`, main="Married Women Any Method Contraceptive Prevalent Rate", xlab="Married Women Any Method Contraceptive Prevalent Rate")
+hist(maternal_mortality_data$`All Women aged 15-49 Modern Method Contraceptive Prevalence Rate`, main="All Women aged 15-49 Modern Method Contraceptive Prevalence Rate", xlab="All Women aged 15-49 Modern Method Contraceptive Prevalence Rate")
+hist(maternal_mortality_data$`Married women Modern Method Contraceptive Prevalence Rate`, main="Married women Modern Method Contraceptive Prevalence Rate", xlab="Married women Modern Method Contraceptive Prevalence Rate")
+hist(maternal_mortality_data$`All Women aged 15-49 Unmet need for family planning Rate`, main="All Women aged 15-49 Unmet need for family planning Rate", xlab="All Women aged 15-49 Unmet need for family planning Rate")
+hist(maternal_mortality_data$`Married Women aged 15-49 Unmet need for family planning Rate`, main="Married Women aged 15-49 Unmet need for family planning Rate", xlab="Married Women aged 15-49 Unmet need for family planning Rate")
+
+```
+
+```{r, echo=FALSE}
+#Predictors pairwise plots
+mod1 <- lm(`Maternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+
+r1 <- resid(mod1) 
+pairs(maternal_mortality_data[,2:4], main='Pairwise Plot 1')
+pairs(maternal_mortality_data[,5:7], main='Pairwise Plot 2')
+pairs(maternal_mortality_data[,8:11], main='Pairwise Plot 3')
+#predictors against fitted values and residuals
+par(mfrow=c(2,3))
+plot(r1 ~ fitted(mod1), main='Fitted v. Residual for mod1', xlab='Fitted', ylab='res.')
+plot(r1 ~ maternal_mortality_data$`Birth Attended by Professionals`, main='Predictor v. Residual', xlab='Birth Attended by Professionals', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`New HIV Infections`, main='Predictor v. Residual', xlab='HIV Infections', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`All Women aged 15-49 Any Method Contraceptive Prevalence Rate` , main='Predictor v. Residual', xlab='Any Contraceptive', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`Married Women Any Method Contraceptive Prevalent Rate` , main='Predictor v. Residual', xlab='Any Contraceptive (Married)', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`All Women aged 15-49 Modern Method Contraceptive Prevalence Rate`, main='Predictor v. Residual', xlab='Modern Contraceptive', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`Married women Modern Method Contraceptive Prevalence Rate`, main='Predictor v. Residual', xlab='Modern Contraceptive (Married)', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`All Women aged 15-49 Unmet need for family planning Rate`, main='Predictor v. Residual', xlab='Unmet need', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`Married Women aged 15-49 Unmet need for family planning Rate`, main='Predictor v. Residual', xlab='Unmet Need (Married)', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`Sexual and Reproductive Information Rate`, main='Predictor v. Residual', xlab='Reproductive Info (%)', ylab='Res Mod 1')
+plot(r1 ~ maternal_mortality_data$`Maternal Mortality Rate`, main='Predictor v. Residual', xlab='Maternal Mortality (%)', ylab='Res Mod 1')
+
+plot(maternal_mortality_data$`Maternal Mortality Rate` ~ fitted(mod1), main="Residual v. Fitted of Mod1", xlab="Y-hat", ylab="Y") #fitted values from x 
+abline(a = 0, b = 1) # <- this is a straight diagonal line which represents identity function with slope of 1 and intercept of 0
+lines(lowess(maternal_mortality_data$`Maternal Mortality Rate` ~ fitted(mod1)), lty=2) # lowess() fits a smooth dotted line onto the plots so it would be easier to see if any data doesn't have linear relationship (straight lines)
+qqnorm(r1, main = 'Normal QQ plot for res 1')
+qqline(r1)
+#above is the qq plot to check Normality
+
+```
+
+
+```{r}
+#attempting to square root response and checking if differences are made
+s1 <- summary(mod1)
+
+maternal_mortality_data$`sqrtMaternal Mortality Rate` <- sqrt(maternal_mortality_data$`Maternal Mortality Rate`)
+mod2 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+s2 <- summary(mod2)
+```
+
+
+```{r}
+vif(mod1)
+```
+```{r}
+vif(mod2)
+```
+```{r}
+#from the lines of code starting here, I remove one predictor at a time to see if the VIF changes or improves
+mod3 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` , data=maternal_mortality_data)
+vif(mod3)
+```
+```{r}
+mod4 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate`, data=maternal_mortality_data)
+vif(mod4)
+```
+```{r}
+mod5 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod5)
+```
+```{r}
+mod6 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod6)
+
+```
+```{r}
+#this one - all women modern method contraceptive prevalence rate
+mod7 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod7)
+```
+```{r} 
+#this one - married women any method contraceptive rate
+mod8 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod8)
+
+```
+```{r}
+mod9 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod9)
+
+```
+
+```{r}
+mod10 <- lm(`sqrtMaternal Mortality Rate` ~  `Birth Attended by Professionals` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod10)
+```
+
+```{r}
+mod11 <- lm(`sqrtMaternal Mortality Rate` ~ `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod11)
+```
+```{r}
+mod12 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate`+ `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` + `Married Women aged 15-49 Unmet need for family planning Rate` + `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod12)
+
+```
+```{r}
+mod13 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections`+ `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod13)
+```
+
+
+```{r}
+mod15 <- lm(`Maternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections`+ `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+vif(mod15)
+```
+
+```{r}
+mod14 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections` + `All Women aged 15-49 Any Method Contraceptive Prevalence Rate` + `Married Women Any Method Contraceptive Prevalent Rate` + `All Women aged 15-49 Modern Method Contraceptive Prevalence Rate` + `Married women Modern Method Contraceptive Prevalence Rate` + `All Women aged 15-49 Unmet need for family planning Rate` , data=maternal_mortality_data)
+vif(mod3)
+```
+```{r}
+#running codes for four critera of checking collinearity predictors
+s3 <- summary(mod3)
+s4 <- summary(mod4)
+s5 <- summary(mod5)
+s6 <- summary(mod6)
+s7 <- summary(mod7)
+s8 <- summary(mod8)
+s9 <- summary(mod9)
+s10 <- summary(mod10)
+s11 <- summary(mod11)
+s12 <- summary(mod12)
+s13 <- summary(mod13)
+preds <- c(length(coef(mod1))-1, length(coef(mod2))-1,
+length(coef(mod3))-1, length(coef(mod4))-1,
+length(coef(mod5))-1, length(coef(mod6))-1,
+length(coef(mod7))-1, length(coef(mod8))-1,
+length(coef(mod9))-1, length(coef(mod10))-1,
+length(coef(mod11))-1, length(coef(mod12))-1,
+length(coef(mod13))-1)
+rsq <-c(s1$adj.r.squared, s2$adj.r.squared, s3$adj.r.squared, s4$adj.r.squared,
+s5$adj.r.squared, s6$adj.r.squared, s7$adj.r.squared, s8$adj.r.squared, s9$adj.r.squared, s10$adj.r.squared, s11$adj.r.squared, s12$adj.r.squared, s13$adj.r.squared)
+cbind(preds, rsq)
+```
+```{r}
+aic <- c(AIC(mod1), AIC(mod2), AIC(mod3), AIC(mod4), AIC(mod5), AIC(mod6), AIC(mod7), AIC(mod8), AIC(mod9), AIC(mod10), AIC(mod11), AIC(mod12), AIC(mod13) )
+cbind(preds, aic)
+```
+```{r}
+bic <- c(BIC(mod1), BIC(mod2), BIC(mod3), BIC(mod4), BIC(mod5), BIC(mod6), BIC(mod7), BIC(mod8), BIC(mod9), BIC(mod10), BIC(mod11), BIC(mod12), BIC(mod13))
+cbind(preds, bic)
+```
+```{r}
+#we've selected a more appropriate model so we began checking the model assumptions again
+mod13 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals` + `New HIV Infections`+ `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+r13 <- resid(mod13) 
+pairs(maternal_mortality_data[,3:4], main='Pairwise Plot 1')
+pairs(maternal_mortality_data[,11:12], main='Pairwise Plot 1')
+plot(r13 ~ fitted(mod13), main='Fitted v. Residual for mod1', xlab='Fitted', ylab='res.')
+plot(r13 ~ maternal_mortality_data$`Birth Attended by Professionals`, main='Predictor v. Residual', xlab='Birth Attended by Professionals', ylab='Res Mod 1')
+plot(r13 ~ maternal_mortality_data$`New HIV Infections`, main='Predictor v. Residual', xlab='HIV Infections', ylab='Res Mod 1')
+plot(r13 ~ maternal_mortality_data$`Sexual and Reproductive Information Rate`, main='Predictor v. Residual', xlab='Birth Attended by Professionals', ylab='Res Mod 1')
+plot(maternal_mortality_data$`sqrtMaternal Mortality Rate` ~ fitted(mod13), main="Residual v. Fitted of Mod1", xlab="Y-hat", ylab="Y") #fitted values from x 
+abline(a = 0, b = 1) # <- this is a straight diagonal line which represents identity function with slope of 1 and intercept of 0
+lines(lowess(maternal_mortality_data$`sqrtMaternal Mortality Rate` ~ fitted(mod13)), lty=2) # lowess() fits a smooth dotted line onto the plots so it would be easier to see if any data doesn't have linear relationship (straight lines)
+par(mfrow=c(2,2))
+qqnorm(r13, main = 'Normal QQ plot for res 13')
+qqline(r13)
+#plotting boxcox 
+boxCox(mod13,family="bcnPower", main = 'BoxCox for MOD13')
+boxCox(mod1, family = 'bcnPower', main = 'BoxCox for MOD1')
+qqnorm(r1, main = 'Normal QQ plot for res 1')
+qqline(r1)
+
+
+```
+```{r}
+#calculating DFBETAS, Cook's Distance, and DFFTIS
+n <- length(maternal_mortality_data$`sqrtMaternal Mortality Rate`)
+p <- length(coef(mod13))-1
+# calculate the leverage values and compare to cutoff
+h <- hatvalues(mod13)
+hcut <- 2*(p+1)/n
+# which observations are leverage points?
+w1 <- which(h > hcut)
+w1
+Dcutoff <- qf(0.5, p+1, n-p-1)
+D <- cooks.distance(mod13)
+D
+ccok <- which(D > Dcutoff)
+ccok
+DFFITScut <- 2*sqrt((p+1)/n)
+dfs <- dffits(mod13)
+dfs
+w3 <- which(abs(dfs) > DFFITScut)
+w3
+
+DFBETAcut <- 2/sqrt(n)
+dfb <- dfbetas(mod13)
+dfb
+w4 <- which(abs(dfb[,1]) > DFBETAcut)
+w4
+w5 <- which(abs(dfb[,2]) > DFBETAcut)
+w5
+w6 <- which(abs(dfb[,3]) > DFBETAcut)
+w6
+w7 <- which(abs(dfb[,4]) > DFBETAcut)
+w7
+
+r <- rstandard(mod13)
+# which observations are outliers?
+w2 <- which(r < -2 | r > 2)
+w2
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+#conducting ANOVA F test
+mod18 <- lm(`sqrtMaternal Mortality Rate` ~ `Birth Attended by Professionals`, data=maternal_mortality_data)
+summary(mod13)
+mod16 <- lm(`sqrtMaternal Mortality Rate` ~ `New HIV Infections` , data=maternal_mortality_data)
+
+mod17 <- lm(`sqrtMaternal Mortality Rate` ~ `Sexual and Reproductive Information Rate` , data=maternal_mortality_data)
+
+
+#conducting partial F test
+
+RSSmod1 <-summary(mod1)$sigma^2*(nrow(maternal_mortality_data)- length(coef(mod1)))
+sum((maternal_mortality_data$`sqrtMaternal Mortality Rate`- fitted(mod1))^2)
+
+RSSmod18 <-summary(mod18)$sigma^2*(nrow(maternal_mortality_data)- length(coef(mod18)))
+sum((maternal_mortality_data$`sqrtMaternal Mortality Rate`- fitted(mod18))^2)
+
+RSSmod16 <-summary(mod16)$sigma^2*(nrow(maternal_mortality_data)- length(coef(mod16)))
+sum((maternal_mortality_data$`sqrtMaternal Mortality Rate`- fitted(mod16))^2)
+
+RSSmod17 <-summary(mod17)$sigma^2*(nrow(maternal_mortality_data)- length(coef(mod17)))
+sum((maternal_mortality_data$`sqrtMaternal Mortality Rate`- fitted(mod17))^2)
+
+partialmod18 <- (RSSmod18/6)/(RSSmod1/(n-p-1))
+partialmod18
+partialmod16 <- (RSSmod16/6)/(RSSmod1/(n-p-1))
+partialmod16
+partialmod17 <- (RSSmod17/6)/(RSSmod1/(n-p-1))
+partialmod17
+```
+
+```{r}
+#conducting T test
+summary(mod13)
+summary(mod13)$coefficients
+
+confint(mod13, level = 0.95)
+```
+
